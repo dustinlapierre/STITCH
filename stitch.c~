@@ -15,8 +15,7 @@
 const int TRUE = 1;
 const int FALSE = 0;
 
-//initialized as root
-char currentDirectory[1024] = "/";
+char currentDirectory[1024] = "/home";
 
 char *getUserInput();
 char **parseUserInput(char* line);
