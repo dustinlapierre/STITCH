@@ -15,6 +15,8 @@
 const int TRUE = 1;
 const int FALSE = 0;
 
+char currentDirectory[1024] = "/";
+
 char *getUserInput();
 char **parseUserInput(char* line);
 int executeCommand(char** args);
@@ -144,6 +146,11 @@ int executeCommand(char** args)
 	if(args[0] == NULL)
 	{
 		//nothing is entered
+		return TRUE;
+	}
+	else if(strcmp(args[0], "cd") == 0)
+	{
+		//changes directory
 		return TRUE;
 	}
 	else if(strcmp(args[0], "exit") == 0)
