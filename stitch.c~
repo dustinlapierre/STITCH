@@ -10,13 +10,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include <sys/shm.h>
-#include <sys/ipc.h>
-#include <sys/types.h>
 
 //defining constants
 const int TRUE = 1;
 const int FALSE = 0;
+
+char currentDirectory[1024] = "/home";
 
 char *getUserInput();
 char **parseUserInput(char* line);
@@ -33,21 +32,10 @@ int main(int argc,char* argv[])
 
 void main_loop()
 {
-	//initialize shared memory address
-	//this all needs error checking
-	int shm_id;
-	key_t key;
-	key = 9876;
-	shm_id = shmget(key, 128*sizeof(char), IPC_CREAT | 0666);
-	char *path = shmat(shm_id, NULL, 0);
-	strcpy(path, "/home");
-
 	//used for exit condition
 	int status = TRUE;
-
 	//stores user input
 	char* line;
-
 	//argument list
 	char **args;
 
@@ -69,9 +57,6 @@ void main_loop()
 		free(args);
 	}
 	while(status);
-
-	int del_shm = shmdt(path);
-	shmctl(shm_id, IPC_RMID, NULL);
 }
 
 char **parseUserInput(char* line)
@@ -168,6 +153,22 @@ int executeCommand(char** args)
 	if(args[0] == NULL)
 	{
 		//nothing is entered
+		return TRUE;
+	}
+	else if(strcmp(args[0], "cd") == 0)
+	{
+		//changes directory
+		return TRUE;
+	}
+	else if(strcmp(args[0], "pwd") == 0)
+	{
+		//prints current directory variable
+		int i;
+		for(i = 0;i < sizeof(currentDirectory);i++)
+		{
+			printf("%c", currentDirectory[i]);
+		}
+		printf("\n");
 		return TRUE;
 	}
 	else if(strcmp(args[0], "exit") == 0)
