@@ -34,12 +34,27 @@ int main(int argc,char* argv[])
 void main_loop()
 {
 	//initialize shared memory address
-	//this all needs error checking
 	int shm_id;
 	key_t key;
 	key = 9876;
+
+	//allocate shared memory
 	shm_id = shmget(key, 128*sizeof(char), IPC_CREAT | 0666);
+	if(shm_id < 0)
+	{
+		perror("Error gaining allocating shared memory");
+		exit(1);
+	}
+
+	//connect to shared memory
 	char *path = shmat(shm_id, NULL, 0);
+	if(path == (char *) -1)
+	{
+		perror("Error gaining access to shared memory");
+		exit(1);
+	}
+
+	//temporary test for shared memory
 	strcpy(path, "/home");
 
 	//used for exit condition
@@ -70,8 +85,17 @@ void main_loop()
 	}
 	while(status);
 
+	//disconnect from shared memory
 	int del_shm = shmdt(path);
+	if(del_shm == -1)
+	{
+		perror("Error detaching from shared memory");
+		exit(1);
+	}
+
+	//deleting shared memory
 	shmctl(shm_id, IPC_RMID, NULL);
+
 }
 
 char **parseUserInput(char* line)
