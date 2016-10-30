@@ -4,6 +4,7 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 #include <sys/types.h>
+#include <inttypes.h>
 #include "fatSupport.h"
 #include "helperFunctions.h"
 
@@ -12,7 +13,7 @@ int BYTES_PER_SECTOR = 512;
 
 void printRoot();
 int findFirstDir(char *fname);
-//unsigned char* findNextDir(char* fname);
+int findNextDir(int currentFLC, char* fname);
 
 int main(int argc, char* argv[])
 {
@@ -79,6 +80,7 @@ int main(int argc, char* argv[])
 	{
 		//reads root to find flc of first dir in path
 		int flc = findFirstDir(pathArray[1]);
+		printf("%i \n", flc);
 		if(flc == -1)
 		{
 			printf("Error invalid path \n");
@@ -90,7 +92,7 @@ int main(int argc, char* argv[])
 			{
 				//using the fat table piece the folder together then read from it to get
 				//the next flc in the path
-				//flc = findNextDir(flc, pathArray[i]);
+				flc = findNextDir(flc, pathArray[i]);
 			}
 			//using the final flc print the directory
 		}
@@ -165,7 +167,7 @@ int findFirstDir(char* fname)
 	int entryNum;
 
 	//loop through all root sectors
-	while(sector < 33)
+	while (sector < 33)
 	{
 		read_sector(sector, buffer);
 
@@ -181,71 +183,67 @@ int findFirstDir(char* fname)
 			{
 				for (i = 0; i < 8; i++)
 				{
-					filename[i] = buffer[32 * entryNum + i];
+					if (buffer[32 * entryNum + i] != ' ')
+					{
+						filename[i] = buffer[32 * entryNum + i];
+					}
 				}
 				attr = buffer[32 * entryNum + 11];
+				if (strcmp(filename, fname) == 0)
+				{
+					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
+				}
 
-
-			}
-			if(strcmp(filename, fname))
-			{
-				flc = buffer[32 * entryNum + 26];
-				break;
 			}
 
 		}
-
 		sector += 1;
 	}
 	free(buffer);
-
 	return flc;
 }
 
-/*
-unsigned char* findNextDir(char* fname)
+int findNextDir(int currentFLC, char* fname)
 {
-	//unsigned char* currentDir;
-	//currentDir = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
+	int flc = -1;
+	unsigned char* buffer;
+	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
 
-	int sector = 19;
+	int sector = 33 + currentFLC - 2;
 	int i;
 	char filename[8];
 	char attr;
 	int entryNum;
 
 	//loop through all root sectors
-	while(sector < 33)
+	read_sector(sector, buffer);
+
+	for (entryNum = 0; entryNum < 512 / 32; entryNum++)
 	{
-		read_sector(sector, buffer);
 
-		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+		if (buffer[32 * entryNum] == 0x00)
 		{
+			break;
+		}
 
-			if (buffer[32 * entryNum] == 0x00)
+		if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
+		{
+			for (i = 0; i < 8; i++)
 			{
-				break;
-			}
-
-			if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
-			{
-				for (i = 0; i < 8; i++)
+				if (buffer[32 * entryNum + i] != ' ')
 				{
 					filename[i] = buffer[32 * entryNum + i];
 				}
-				attr = buffer[32 * entryNum + 11];
-
-
 			}
-			if(strcmp(filename, fname))
-			{
-
-			}
+			attr = buffer[32 * entryNum + 11];
+			//if (strcmp(filename, fname) == 0)
+			//{
+				//flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
+			//}
 
 		}
 
-		sector += 1;
 	}
 	free(buffer);
+	return flc;
 }
-*/
