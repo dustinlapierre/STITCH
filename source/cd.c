@@ -12,8 +12,8 @@ FILE* FILE_SYSTEM_ID;
 int BYTES_PER_SECTOR = 512;
 unsigned char* FAT;
 
-int findFirstDir(char *fname);
-int findNextDir(int currentFLC, char* fname);
+int findFirstDir(char *fname, char *shm_path);
+int findNextDir(int currentFLC, char* fname,  char *shm_path);
 
 int main(int argc, char* argv[])
 {
@@ -97,38 +97,40 @@ int main(int argc, char* argv[])
 		read_sector(i+1, &FAT[i * BYTES_PER_SECTOR]);
 	}
 
-	//current directory is root
-	if(pathArray[1] == NULL)
+	int flc = *currentFLC;
+	i = 0;
+	//working directory is root
+	if(storedPath[0] == '/' || *currentFLC == 0)
 	{
 		strcpy(path, "/HOME");
 		*currentFLC = 0;
-	}
-	//current directory is not root
-	else
-	{
-		//reads root to find flc of first dir in path
-		int flc = findFirstDir(pathArray[1]);
+
+		if(strcmp(pathArray[0], "HOME") == 0)
+		{
+			i = 1;
+		}
+
+		flc = findFirstDir(pathArray[i], path);
 		if(flc == -1)
 		{
 			printf("Error invalid path \n");
 		}
-		else
-		{
-			for(i = 2;pathArray[i] != NULL;i++)
-			{
-				//using the fat table piece the folder together then read from it to get the next flc in the path
-				flc = findNextDir(flc, pathArray[i]);
-			}
-			if(flc == -1)
-			{
-				printf("Error invalid path \n");
-			}
-			else
-			{
-				*currentFLC = flc;
-				strcpy(path, storedPath);
-			}
-		}
+		i = 2;
+	}
+	//traverse
+	for(;pathArray[i] != NULL;i++)
+	{
+		//using the fat table piece the folder together then read from it to get the next flc in the path
+		flc = findNextDir(flc, pathArray[i], path);
+	}
+	//store the final path and flc
+	if(flc == -1)
+	{
+		printf("Error invalid path \n");
+	}
+	else
+	{
+		*currentFLC = flc;
 	}
 
 
@@ -152,7 +154,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-int findFirstDir(char* fname)
+int findFirstDir(char* fname, char *shm_path)
 {
 	int flc = -1;
 	unsigned char* buffer;
@@ -194,6 +196,8 @@ int findFirstDir(char* fname)
 				if (strcmp(filename, fname) == 0)
 				{
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
+					strcat(shm_path, "/");
+					strcat(shm_path, filename);
 				}
 
 			}
@@ -205,7 +209,7 @@ int findFirstDir(char* fname)
 	return flc;
 }
 
-int findNextDir(int currentFLC, char* fname)
+int findNextDir(int currentFLC, char* fname, char *shm_path)
 {
 	int flc = -1;
 	unsigned char* buffer;
@@ -247,6 +251,8 @@ int findNextDir(int currentFLC, char* fname)
 				if (strcmp(filename, fname) == 0)
 				{
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
+					strcat(shm_path, "/");
+					strcat(shm_path, filename);
 				}
 
 			}
