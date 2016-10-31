@@ -6,7 +6,6 @@
 
 int main(int argc, char* argv[])
 {
-	//all of this needs error checking
 	int shm_id;
 	key_t key;
 	key = 9876;
@@ -29,7 +28,7 @@ int main(int argc, char* argv[])
 
 	//print out path from shared memory
 	int i;
-	for(i = 0;i < sizeof(path);i++ )
+	for(i = 0;path[i] != '\0';i++ )
 	{
 		printf("%c", path[i]);
 	}

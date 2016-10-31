@@ -12,7 +12,6 @@
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
-#include <sys/types.h>
 
 //defining constants
 const int TRUE = 1;
@@ -33,12 +32,11 @@ int main(int argc,char* argv[])
 
 void main_loop()
 {
-	//initialize shared memory address
 	int shm_id;
 	key_t key;
 	key = 9876;
 
-	//allocate shared memory
+	//allocate shared memory for path
 	shm_id = shmget(key, 128*sizeof(char), IPC_CREAT | 0666);
 	if(shm_id < 0)
 	{
@@ -54,8 +52,30 @@ void main_loop()
 		exit(1);
 	}
 
+	key = 9880;
+	int shm_id2;
+
+	//allocate shared memory for flc
+	shm_id2 = shmget(key, sizeof(int), IPC_CREAT | 0666);
+	if(shm_id2 < 0)
+	{
+		perror("Error gaining allocating shared memory");
+		exit(1);
+	}
+
+	//connect to shared memory
+	int* flc = shmat(shm_id2, NULL, 0);
+	if(flc == (int *) -1)
+	{
+		perror("Error gaining access to shared memory");
+		exit(1);
+	}
+
 	//temporary test for shared memory
-	strcpy(path, "/home");
+	strcpy(path, "/HOME");
+
+	//flc initialized to root
+	*flc = 0;
 
 	//used for exit condition
 	int status = TRUE;
@@ -93,8 +113,17 @@ void main_loop()
 		exit(1);
 	}
 
+	//disconnect from shared memory
+	del_shm = shmdt(flc);
+	if(del_shm == -1)
+	{
+		perror("Error detaching from shared memory");
+		exit(1);
+	}
+
 	//deleting shared memory
 	shmctl(shm_id, IPC_RMID, NULL);
+	shmctl(shm_id2, IPC_RMID, NULL);
 
 }
 
