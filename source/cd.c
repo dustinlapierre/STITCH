@@ -111,19 +111,18 @@ int main(int argc, char* argv[])
 		}
 
 		flc = findFirstDir(pathArray[i], path);
-		if(flc == -1)
-		{
-			printf("Error invalid path \n");
-		}
 		i = 2;
 	}
 	//traverse
-	for(;pathArray[i] != NULL;i++)
+	if(flc != -1)
 	{
-		//using the fat table piece the folder together then read from it to get the next flc in the path
-		flc = findNextDir(flc, pathArray[i], path);
+		for(;pathArray[i] != NULL;i++)
+		{
+			//using the fat table piece the folder together then read from it to get the next flc in the path
+			flc = findNextDir(flc, pathArray[i], path);
+		}
 	}
-	//store the final path and flc
+	//if the path is valid save the current FLC to shared memory
 	if(flc == -1)
 	{
 		printf("Error invalid path \n");
@@ -189,11 +188,11 @@ int findFirstDir(char* fname, char *shm_path)
 					}
 					else
 					{
-						filename[i] = NULL;
+						filename[i] = '\0';
 					}
 				}
 				attr = buffer[32 * entryNum + 11];
-				if (strcmp(filename, fname) == 0)
+				if (strcmp(filename, fname) == 0 && attr == 0x10)
 				{
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
 					strcat(shm_path, "/");
@@ -244,11 +243,11 @@ int findNextDir(int currentFLC, char* fname, char *shm_path)
 					}
 					else
 					{
-						filename[i] = NULL;
+						filename[i] = '\0';
 					}
 				}
 				attr = buffer[32 * entryNum + 11];
-				if (strcmp(filename, fname) == 0)
+				if (strcmp(filename, fname) == 0 && attr == 0x10)
 				{
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
 					strcat(shm_path, "/");
