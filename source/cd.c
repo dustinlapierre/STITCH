@@ -12,8 +12,9 @@ FILE* FILE_SYSTEM_ID;
 int BYTES_PER_SECTOR = 512;
 unsigned char* FAT;
 
-int findFirstDir(char *fname, char *shm_path);
-int findNextDir(int currentFLC, char* fname,  char *shm_path);
+int findFromRoot(char *fname, char* shm_path);
+int findFromCurrent(int currentFLC, char* fname,  char* shm_path);
+void removeEnd(char* shm_path);
 
 int main(int argc, char* argv[])
 {
@@ -28,7 +29,7 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 	char *argumentPath = argv[1];
-	char storedPath[128];
+	char storedPath[1024];
 
 	int i;
 	for(i = 0;argumentPath[i] != '\0';i++)
@@ -98,20 +99,21 @@ int main(int argc, char* argv[])
 	}
 
 	int flc = *currentFLC;
+	//to fix pathing bug
+	char savedPath[1024];
+	strcpy(savedPath, path);
 	i = 0;
 	//working directory is root
 	if(storedPath[0] == '/' || *currentFLC == 0)
 	{
 		strcpy(path, "/HOME");
-		*currentFLC = 0;
+		flc = 0;
 
 		if(strcmp(pathArray[0], "HOME") == 0)
 		{
 			i = 1;
 		}
 
-		flc = findFirstDir(pathArray[i], path);
-		i = 2;
 	}
 	//traverse
 	if(flc != -1)
@@ -119,12 +121,26 @@ int main(int argc, char* argv[])
 		for(;pathArray[i] != NULL;i++)
 		{
 			//using the fat table piece the folder together then read from it to get the next flc in the path
-			flc = findNextDir(flc, pathArray[i], path);
+			if(flc == 0)
+			{
+				flc = findFromRoot(pathArray[i], path);
+			}
+			else
+			{
+				flc = findFromCurrent(flc, pathArray[i], path);
+			}
+			if(flc == -1)
+			{
+				break;
+			}
+
 		}
 	}
 	//if the path is valid save the current FLC to shared memory
+	//otherwise reset the path back to original
 	if(flc == -1)
 	{
+		strcpy(path, savedPath);
 		printf("Error invalid path \n");
 	}
 	else
@@ -153,7 +169,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-int findFirstDir(char* fname, char *shm_path)
+int findFromRoot(char* fname, char *shm_path)
 {
 	int flc = -1;
 	unsigned char* buffer;
@@ -195,8 +211,15 @@ int findFirstDir(char* fname, char *shm_path)
 				if (strcmp(filename, fname) == 0 && attr == 0x10)
 				{
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
-					strcat(shm_path, "/");
-					strcat(shm_path, filename);
+					if(strcmp(filename, "..") != 0 && strcmp(filename, ".") != 0)
+					{
+						strcat(shm_path, "/");
+						strcat(shm_path, filename);
+					}
+					else if(strcmp(filename, "..") == 0)
+					{
+						removeEnd(shm_path);
+					}
 				}
 
 			}
@@ -208,7 +231,7 @@ int findFirstDir(char* fname, char *shm_path)
 	return flc;
 }
 
-int findNextDir(int currentFLC, char* fname, char *shm_path)
+int findFromCurrent(int currentFLC, char* fname, char *shm_path)
 {
 	int flc = -1;
 	unsigned char* buffer;
@@ -223,7 +246,10 @@ int findNextDir(int currentFLC, char* fname, char *shm_path)
 	//loop through all root sectors
 	while(1)
 	{
-		read_sector(sector, buffer);
+		if(read_sector(sector, buffer) == -1)
+		{
+			break;
+		}
 
 		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
 		{
@@ -250,8 +276,15 @@ int findNextDir(int currentFLC, char* fname, char *shm_path)
 				if (strcmp(filename, fname) == 0 && attr == 0x10)
 				{
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
-					strcat(shm_path, "/");
-					strcat(shm_path, filename);
+					if(strcmp(filename, "..") != 0 && strcmp(filename, ".") != 0)
+					{
+						strcat(shm_path, "/");
+						strcat(shm_path, filename);
+					}
+					else if(strcmp(filename, "..") == 0)
+					{
+						removeEnd(shm_path);
+					}
 				}
 
 			}
@@ -266,4 +299,18 @@ int findNextDir(int currentFLC, char* fname, char *shm_path)
 	}
 	free(buffer);
 	return flc;
+}
+
+void removeEnd(char* shm_path)
+{
+	char temp[1024];
+	int i;
+	strcpy(temp, shm_path);
+	char ** pathTokens = parsePath(temp);
+	strcpy(shm_path, "");
+	for(i = 0;pathTokens[i + 1] != '\0';i++)
+	{
+		strcat(shm_path, "/");
+		strcat(shm_path, pathTokens[i]);
+	}
 }
