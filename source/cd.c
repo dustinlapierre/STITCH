@@ -1,3 +1,15 @@
+/*
+Authors: Dustin Lapierre, Albert Sebastian
+Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 10.22.2016
+CD command
+Navigates to the user requested path, changing both the shared path and flc variables
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +30,7 @@ void removeEnd(char* shm_path);
 
 int main(int argc, char* argv[])
 {
+	//testing for correct number of arguments
 	if(argc == 1)
 	{
 		printf("Error: no argument passed! \n");
@@ -28,9 +41,11 @@ int main(int argc, char* argv[])
 		printf("Error: too many arguments! \n");
 		exit(0);
 	}
+	//storing the argument
 	char *argumentPath = argv[1];
 	char storedPath[1024];
 
+	//making the path uppercase
 	int i;
 	for(i = 0;argumentPath[i] != '\0';i++)
 	{
@@ -98,11 +113,12 @@ int main(int argc, char* argv[])
 		read_sector(i+1, &FAT[i * BYTES_PER_SECTOR]);
 	}
 
+	//setting temp flc
 	int flc = *currentFLC;
-	//to fix pathing bug
 	char savedPath[1024];
 	strcpy(savedPath, path);
 	i = 0;
+
 	//working directory is root
 	if(storedPath[0] == '/' || *currentFLC == 0)
 	{
@@ -115,12 +131,11 @@ int main(int argc, char* argv[])
 		}
 
 	}
-	//traverse
+	//Traverse directories in path
 	if(flc != -1)
 	{
 		for(;pathArray[i] != NULL;i++)
 		{
-			//using the fat table piece the folder together then read from it to get the next flc in the path
 			if(flc == 0)
 			{
 				flc = findFromRoot(pathArray[i], path);
@@ -208,8 +223,10 @@ int findFromRoot(char* fname, char *shm_path)
 					}
 				}
 				attr = buffer[32 * entryNum + 11];
+
 				if (strcmp(filename, fname) == 0 && attr == 0x10)
 				{
+					//folder is found
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
 					if(strcmp(filename, "..") != 0 && strcmp(filename, ".") != 0)
 					{
@@ -243,9 +260,10 @@ int findFromCurrent(int currentFLC, char* fname, char *shm_path)
 	char attr;
 	int entryNum;
 
-	//loop through all root sectors
+	//loop through FAT entries for the folder
 	while(1)
 	{
+		//if sector can't be read break
 		if(read_sector(sector, buffer) == -1)
 		{
 			break;
@@ -275,6 +293,7 @@ int findFromCurrent(int currentFLC, char* fname, char *shm_path)
 				attr = buffer[32 * entryNum + 11];
 				if (strcmp(filename, fname) == 0 && attr == 0x10)
 				{
+					//folder is found
 					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
 					if(strcmp(filename, "..") != 0 && strcmp(filename, ".") != 0)
 					{
@@ -301,13 +320,22 @@ int findFromCurrent(int currentFLC, char* fname, char *shm_path)
 	return flc;
 }
 
+//removes the last element in the path
 void removeEnd(char* shm_path)
 {
 	char temp[1024];
 	int i;
+
+	//copy path into temp
 	strcpy(temp, shm_path);
+
+	//tokenize temp
 	char ** pathTokens = parsePath(temp);
+
+	//clear path
 	strcpy(shm_path, "");
+
+	//rebuild path without last element
 	for(i = 0;pathTokens[i + 1] != '\0';i++)
 	{
 		strcat(shm_path, "/");

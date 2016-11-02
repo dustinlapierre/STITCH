@@ -1,15 +1,3 @@
-/*
-Authors: Dustin Lapierre, Albert Sebastian
-Class: CSI-385-02
-Assignment: FAT12 Filesystem
-Created: 10.01.2016
-PFE Command
-prints FAT entries to console
-
-Certification of Authenticity:
-I certify that this assignment is entirely my own work.
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "fatSupport.h"

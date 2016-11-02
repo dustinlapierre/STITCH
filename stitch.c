@@ -1,7 +1,14 @@
-//Dustin Lapierre
-//10.14.2016
-//Shell in C
-//A shell that creates processes and executes commands
+/*
+Authors: Dustin Lapierre, Albert Sebastian
+Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 10.14.2016
+Shell in C
+A shell that creates processes and executes commands
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
 
 #include <stdio.h>
 #include <unistd.h>
