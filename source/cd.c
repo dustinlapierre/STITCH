@@ -1,6 +1,6 @@
 /*
 Authors: Dustin Lapierre, Albert Sebastian
-Class: CSI-385-02
+to Class: CSI-385-02
 Assignment: FAT12 Filesystem
 Created: 10.22.2016
 CD command
@@ -31,28 +31,11 @@ void removeEnd(char* shm_path);
 int main(int argc, char* argv[])
 {
 	//testing for correct number of arguments
-	if(argc == 1)
-	{
-		printf("Error: no argument passed! \n");
-		exit(0);
-	}
-	else if (argc > 2)
+	if (argc > 2)
 	{
 		printf("Error: too many arguments! \n");
 		exit(0);
 	}
-	//storing the argument
-	char *argumentPath = argv[1];
-	char storedPath[1024];
-
-	//making the path uppercase
-	int i;
-	for(i = 0;argumentPath[i] != '\0';i++)
-	{
-		argumentPath[i] = toupper(argumentPath[i]);
-		storedPath[i] = argumentPath[i];
-	}
-	storedPath[i+1] = '\0';
 
 	int shm_id;
 	int shm_id2;
@@ -92,6 +75,44 @@ int main(int argc, char* argv[])
 		perror("Error gaining access to shared memory");
 		exit(1);
 	}
+
+	//no arguments so navigate to root
+	if(argc == 1)
+	{
+		strcpy(path, "/HOME");
+		*currentFLC = 0;
+
+		//disconnect from shared memory
+		int del_shm = shmdt(path);
+		if(del_shm == -1)
+		{
+			perror("Error detaching from shared memory");
+			exit(1);
+		}
+
+		//disconnect from shared memory
+		del_shm = shmdt(currentFLC);
+		if(del_shm == -1)
+		{
+			perror("Error detaching from shared memory");
+			exit(1);
+		}
+
+		exit(0);
+	}
+
+	//storing the argument
+	char *argumentPath = argv[1];
+	char storedPath[1024];
+
+	//making the path uppercase
+	int i;
+	for(i = 0;argumentPath[i] != '\0';i++)
+	{
+		argumentPath[i] = toupper(argumentPath[i]);
+		storedPath[i] = argumentPath[i];
+	}
+	storedPath[i+1] = '\0';
 
 	//tokenize path
 	char** pathArray = parsePath(argumentPath);
