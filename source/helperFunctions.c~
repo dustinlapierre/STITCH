@@ -57,3 +57,20 @@ char** parsePath(char* pathname)
 	return directoryList;
 
 }
+
+int main(int argc,char* argv[])
+{
+	char path[] = "/home/friend/lib";
+	char** pathArray;
+	pathArray = parsePath(path);
+	int i = 0;
+	for(i = 0;pathArray[i] != NULL;i++)
+	{
+		printf("%s \n", pathArray[i]);
+	}
+
+	free(pathArray);
+
+	return 0;
+}
+

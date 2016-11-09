@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include "pbsStruct.h"
-#include "fatSupport.h"
 
 
 extern FILE* FILE_SYSTEM_ID;
