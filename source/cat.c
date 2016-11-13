@@ -8,15 +8,17 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <ctype.h>
-#include "fatSupport.h"
 #include "helperFunctions.h"
+#include "fatSupport.h"
 
 FILE* FILE_SYSTEM_ID;
 int BYTES_PER_SECTOR = 512;
 unsigned char* FAT;
 
-
-void printFile(int*, char*);
+void checkFile(int, char*);
+void checkFileRoot(char*);
+void printFile(int);
+void removeExtension(char*);
 
 int main(int argc, char* argv[])
 {
@@ -39,12 +41,12 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-  //store FAT table
+	//store FAT table
 	FAT = (unsigned char*) malloc(BYTES_PER_SECTOR * sizeof(unsigned char) * 9);
-  int i;
-	for(i = 0;i < 9; i++)
+	int i;
+	for (i = 0; i < 9; i++)
 	{
-		read_sector(i+1, &FAT[i * BYTES_PER_SECTOR]);
+		read_sector(i + 1, &FAT[i * BYTES_PER_SECTOR]);
 	}
 
 	int shm_id;
@@ -88,183 +90,291 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-    printf("Too few arguments: cat requires one argument \n");
+		printf("Too few arguments: cat requires one argument \n");
 	}
-  int savedFLC = *currentFLC;
+	int savedFLC = *currentFLC;
 	char savedPath[1024];
 	char* pathEnd;
 	strcpy(savedPath, path);
 
-  //CAT functionality
+	//CAT functionality
 
-  for (i = 0; argument[i] != '\0'; i++) {
-    argument[i] = toupper(argument[i]);
-  }
+	for (i = 0; argument[i] != '\0'; i++)
+	{
+		argument[i] = toupper(argument[i]);
+	}
 
-  argument[i + 1] = '\0';
-  char** pathArray = parsePath(argument);
-  int pathLength;
+	argument[i + 1] = '\0';
+	char** pathArray = parsePath(argument);
+	int pathLength;
 
-  for (pathLength = 0; pathArray[pathLength] != NULL; pathLength++) {
-    //just counts the # of paths
-  }
-  //save the last token in a variable then drop it
+	for (pathLength = 0; pathArray[pathLength] != NULL; pathLength++);
+	//just counts the # of paths
 
-  for (i = 0; pathArray[i + 1] != '\0'; i++);
-  pathEnd = pathArray[i];
-  pathArray[i] = '\0';
+	//save the last token in a variable then drop it
+	for (i = 0; pathArray[i + 1] != '\0'; i++);
+	pathEnd = pathArray[i];
+	pathArray[i] = '\0';
 
-  //build path for cd
-  char cdPath[1024];
-  if (pathLength > 1)
-  {
-    strcat(cdPath, "/");
+	//remove any extensions
+	removeExtension(pathEnd);
 
+	//build path for cd
+	char cdPath[1024];
+	if (pathLength > 1)
+	{
+		strcat(cdPath, "/");
 
-  strcat(cdPath, pathArray[0]);
+		strcat(cdPath, pathArray[0]);
 
-  for (i = 1; pathArray[i] != '\0'; i++)
-  {
-    strcat(cdPath, "/");
-    strcat(cdPath, pathArray[i]);
-  }
+		for (i = 1; pathArray[i] != '\0'; i++)
+		{
+			strcat(cdPath, "/");
+			strcat(cdPath, pathArray[i]);
+		}
 
+		int pid = fork();
+		if (pid == -1)
+		{
+			perror("Error creating process\n");
+		}
+		else if (pid == 0)
+		{
+			if (execlp("./commands/cd", "cd", cdPath, (char *) NULL) == -1)
+			{
+				perror("Error loading program into memory");
+				exit(EXIT_FAILURE);
+			}
+		}
 
+		//waiting until child is finished running
+		pid_t waitpid;
+		waitpid = wait(NULL);
+		if (waitpid == -1)
+		{
+			perror("Error on wait");
+			exit(0);
+		}
 
+		if (*currentFLC == 0)
+		{
+			checkFileRoot(pathEnd);
+		}
+		else
+		{
+			checkFile(*currentFLC, pathEnd);
+		}
+	}
+	else
+	{
+		if (*currentFLC == 0)
+		{
+			checkFileRoot(pathEnd);
+		}
+		else
+		{
+			checkFile(*currentFLC, pathEnd);
+		}
+	}
 
-  int pid = fork();
-  if (pid == -1)
-  {
-    perror("Error creating process\n");
-  }
-  else if (pid == 0)
-  {
-    if (execlp("./commands/cd", "cd", cdPath,(char *) NULL) == -1)
-    {
-      perror("Error loading program into memory");
-      exit(EXIT_FAILURE);
-    }
-  }
+	strcpy(path, savedPath);
+	*currentFLC = savedFLC;
 
-  //waiting until child is finished running
-  pid_t waitpid;
-  waitpid = wait(NULL);
-  if (waitpid == -1)
-  {
-    perror("Error on wait");
-    exit(0);
-  }
-  /*
-  printf("%s \n", cdPath);
-  printf("%s \n", pathEnd);
-  printf("%i \n", *currentFLC);*/
-  printFile(currentFLC, pathEnd);
-  }
-  else
-  {
-  printFile(currentFLC, pathEnd);
-  }
+	//disconnect from shared memory
+	int del_shm = shmdt(path);
+	if (del_shm == -1)
+	{
+		perror("Error detaching from shared memory");
+		exit(1);
+	}
 
-
-
-  strcpy(path, savedPath);
-  *currentFLC = savedFLC;
-
-  //disconnect from shared memory
-  int del_shm = shmdt(path);
-  if (del_shm == -1)
-  {
-    perror("Error detaching from shared memory");
-    exit(1);
-  }
-
-  //disconnect from shared memory
-  del_shm = shmdt(currentFLC);
-  if (del_shm == -1)
-  {
-    perror("Error detaching from shared memory");
-    exit(1);
-  }
-return 0;
+	//disconnect from shared memory
+	del_shm = shmdt(currentFLC);
+	if (del_shm == -1)
+	{
+		perror("Error detaching from shared memory");
+		exit(1);
+	}
+	return 0;
 }
 
-void printFile(int* currentFLC,char* pathEnd)
+//locates the file and checks if it's valid
+void checkFile(int currentFLC, char* pathEnd)
 {
-  int i;
-  unsigned char* buffer;
-  buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
-  if (*currentFLC == 0)
-  {
-    read_sector(19, buffer);
-  }
-  else
-  {
-  read_sector((33 + *currentFLC - 2), buffer);
-  }
+	int i;
+	unsigned char* buffer;
+	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
 
-  char* newPath;
-  char filename[8];
+	int sector = 33 + currentFLC - 2;
+	char filename[8];
+	int flc = -1;
+	char attr;
+	int entryNum;
 
-  int flc;
+	//loop through FAT entries for the folder
+	while(1)
+	{
+		//if sector can't be read break
+		if(read_sector(sector, buffer) == -1)
+		{
+			break;
+		}
 
-  int entryNum;
+		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+		{
 
-  for (entryNum = 0; entryNum < 512 / 32; entryNum++) {
-    if (buffer[32 * entryNum] == 0x00) {
-      printf("Error: file searched does not exist. \n");
-      return;
-    }
+			if (buffer[32 * entryNum] == 0x00)
+			{
+				break;
+			}
 
-    if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
-     {
+			if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
+			{
+				for (i = 0; i < 8; i++)
+				{
+					if (buffer[32 * entryNum + i] != ' ')
+					{
+						filename[i] = buffer[32 * entryNum + i];
+					}
+					else
+					{
+						filename[i] = '\0';
+					}
+				}
+				attr = buffer[32 * entryNum + 11];
+				if (strcmp(filename, pathEnd) == 0 && attr != 0x10)
+				{
+					//file is found
+					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
+					break;
+				}
 
+			}
 
-      for (i = 0; i < 8; i++) {
-        if (buffer[32 * entryNum + i] != ' ') {
-          filename[i] = buffer[32 * entryNum + i];
-          //printf("%c" , filename[i]);
-        } else {
-          filename[i] = '\0';
-        }
-      }
+		}
+		if(get_fat_entry(currentFLC, FAT) == 0xfff)
+		{
+			break;
+		}
+		currentFLC = get_fat_entry(currentFLC, FAT);
+		sector = 33 + currentFLC - 2;
+	}
 
-      if (strcmp(filename, pathEnd) == 0)
-      {
+	printFile(flc);
+	free(buffer);
+}
 
-        *currentFLC = buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26];
-            break;
-      }
-    }
-    }
+//locates the file and checks if it's valid in root
+void checkFileRoot(char* pathEnd)
+{
+	int i;
+	unsigned char* buffer;
+	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
 
+	int sector = 19;
+	char filename[8];
+	int flc = -1;
+	char attr;
+	int entryNum;
 
+	//loop through FAT entries for the folder
+	while(sector < 33)
+	{
+		//if sector can't be read break
+		if(read_sector(sector, buffer) == -1)
+		{
+			break;
+		}
 
-    if (buffer[32 * entryNum + 11] == 0x10)
-    {
-      printf("You cannot CAT a directory! \n");
-    }
-    else
-    {
-       int flc = *currentFLC;
-       int filesize = buffer[32 * entryNum + 31]
- 					| buffer[32 * entryNum + 30]
- 					| buffer[32 * entryNum + 29]
- 					| buffer[32 * entryNum + 28];
-      do
-      {
-        read_sector(33 + flc -2, buffer);
-        flc = get_fat_entry(flc, FAT);
+		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+		{
 
-        for (i=0; i < 512; i++)
-        {
-          printf("%c", buffer[i]);
+			if (buffer[32 * entryNum] == 0x00)
+			{
+				break;
+			}
 
-        }
+			if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
+			{
+				for (i = 0; i < 8; i++)
+				{
+					if (buffer[32 * entryNum + i] != ' ')
+					{
+						filename[i] = buffer[32 * entryNum + i];
+					}
+					else
+					{
+						filename[i] = '\0';
+					}
+				}
+				attr = buffer[32 * entryNum + 11];
+				if (strcmp(filename, pathEnd) == 0 && attr != 0x10)
+				{
+					//file is found
+					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
+					break;
+				}
 
+			}
 
-      }while(get_fat_entry(flc, FAT) != 0xfff);
-      printf("\n");
-    }
+		}
+		sector += 1;
+	}
 
+	printFile(flc);
+	free(buffer);
+}
 
+//prints the file found at a given flc
+void printFile(int flc)
+{
+	int sector;
+	int i = 0;
+	unsigned char* buffer;
+	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
+
+	if (flc == -1)
+	{
+		printf("Error: invalid argument or file not found \n");
+	}
+	else
+	{
+		sector = 33 + flc - 2;
+		while(1)
+		{
+			if(read_sector(sector, buffer) == -1)
+			{
+				break;
+			}
+
+			for (i = 0; i < 512; i++)
+			{
+				printf("%c", buffer[i]);
+			}
+
+			if(get_fat_entry(flc, FAT) == 0xfff)
+			{
+				break;
+			}
+			flc = get_fat_entry(flc, FAT);
+			sector = 33 + flc - 2;
+		}
+		printf("\n");
+	}
+	free(buffer);
+}
+
+//removes the extension from the filename
+void removeExtension(char* filename)
+{
+	//replaces the period with a null terminator
+	int i;
+	for(i = 0;filename[i] != '\0';i++)
+	{
+		if(filename[i] == '.')
+		{
+			filename[i] = '\0';
+		}
+	}
+	printf("%s \n", filename);
 }
