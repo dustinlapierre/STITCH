@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
 	int i;
 
 	//open the floppy
-	FILE_SYSTEM_ID = fopen(getenv("CURRENT_FLOPPY"), "r+");
+	FILE_SYSTEM_ID = fopen("floppy1", "r+");
 
 	if (FILE_SYSTEM_ID == NULL)
 	{

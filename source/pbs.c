@@ -6,15 +6,66 @@
  */
 
 #include <stdio.h>
-#include "pbsStruct.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/shm.h>
+#include <sys/ipc.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <ctype.h>
+#include "helperFunctions.h"
 #include "fatSupport.h"
 
+typedef struct bootsect
+{
+	unsigned char Name[8];
+	int BytesPerSector;
+	int SectorsPerCluster;
+	int NumOfFats;
+	int NumReserved;
+	int NumRoot;
+	int SectCount;
+	int SectorsPerFat;
+	int SectorsPerTrack;
+	int NumHeads;
+	int BootSig;
+	long int VolumeId;
+	char* VolumeLabel;
+	char* FileSysType;
+	//boot sig in hex/ volume id in hex/ volume label and file system type
 
-extern FILE* FILE_SYSTEM_ID;
-extern int BYTES_PER_SECTOR;
-extern bootsect_t bootsector;
-extern int read_sector(int sector_number, unsigned char* buffer);
 
+} __attribute__ ((packed)) bootsect_t;
+
+
+FILE* FILE_SYSTEM_ID;
+int BYTES_PER_SECTOR = 512;
+unsigned char* FAT;
+bootsect_t bootsector;
+void readBootSector();
+
+int main(int argc, char* argv[])
+{
+	if (argc > 1)
+	{
+		printf("Error too many arguments! \n");
+	}
+	FILE_SYSTEM_ID = fopen(getenv("CURRENT_FLOPPY"), "r+");
+	if (FILE_SYSTEM_ID == NULL)
+	{
+		printf("Could not open the floppy drive or image.\n");
+		exit(1);
+	}
+
+	readBootSector();
+
+
+
+	return 0;
+}
 
 
 
@@ -25,14 +76,18 @@ void readBootSector()
 
 	//finding total number of sectors
 	unsigned char* buffer;
-	buffer = (unsigned char*) malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
+	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
 	read_sector(0,buffer);
 	int mostSigBits;
 	int leastSigBits;
 	int mostSigBits2;
 	int leastSigBits2;
+	bootsect_t bootsector;
 
-
+	mostSigBits  = ( ( (int) buffer[12] ) << 8 ) & 0x0000ff00;
+	leastSigBits =   ( (int) buffer[11] )        & 0x000000ff;
+	mostSigBits2 = mostSigBits | leastSigBits;
+	printf("Bytes per sector: %d \n", mostSigBits2);
 	bootsector.NumOfFats =  buffer[16];
 	printf("Number of fats: %d \n", bootsector.NumOfFats);
 	bootsector.SectorsPerCluster = buffer[13];
@@ -47,6 +102,12 @@ void readBootSector()
 	mostSigBits = buffer[18];
 	bootsector.NumRoot = mostSigBits | leastSigBits;
 	printf("Number of root directory entries: %d  \n", bootsector.NumRoot);
+
+	int totalBlocks;
+	int mostSig  = ( ( (int) buffer[20] ) << 8  ) & 0x0000ff00;
+	int leastSig = ( (int) buffer[19] )        & 0x000000ff;
+	totalBlocks = mostSig | leastSig;
+	printf("Number of total Sectors: %d \n", totalBlocks);
 
 	leastSigBits = buffer[22];
 	mostSigBits = buffer[23];
@@ -75,9 +136,6 @@ void readBootSector()
 	bootsector.VolumeId = mostSigBits | mostSigBits2 | leastSigBits2 | leastSigBits << 24;
 	printf("Volume ID in hex: 0x%x \n",bootsector.VolumeId);
 
+
+
 }
-
-
-
-
-

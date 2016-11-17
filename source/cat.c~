@@ -376,5 +376,4 @@ void removeExtension(char* filename)
 			filename[i] = '\0';
 		}
 	}
-	printf("%s \n", filename);
 }

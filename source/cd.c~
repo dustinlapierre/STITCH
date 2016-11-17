@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
 	char** pathArray = parsePath(argumentPath);
 
 	//open floppy
-	FILE_SYSTEM_ID = fopen(getenv("CURRENT_FLOPPY"), "r+");
+	FILE_SYSTEM_ID = fopen("floppy1", "r+");
 
 	if (FILE_SYSTEM_ID == NULL)
 	{
