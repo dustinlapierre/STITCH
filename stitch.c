@@ -31,6 +31,9 @@ void main_loop();
 
 int main(int argc,char* argv[])
 {
+	//set floppy environment variable
+	setenv("CURRENT_FLOPPY", "floppy1", 1);
+
 	//starts the main loop
 	main_loop();
 
@@ -235,13 +238,26 @@ int executeCommand(char** args)
 		//returns FALSE to tell status to quit
 		return FALSE;
 	}
-	else if(strcmp(args[0], "lilo") == 0)
+	else if(strcmp(args[0], "about") == 0)
 	{
 		//command that prints about info
 		printf("STITCH 2.0\n");
 		printf("Created by Dustin Lapierre and Albert Sebastian\n");
 		printf("Shell That Is Thrilling and Considerably Helpful\n");
 		printf("Copyright 10/14/2016\n");
+		return TRUE;
+	}
+	else if(strcmp(args[0], "lilo") == 0)
+	{
+		if(atoi(args[1]) < 4 && atoi(args[1]) > 0)
+		{
+			setenv("CURRENT_FLOPPY", concat("floppy",args[1]), 1);
+			printf("Changed to %s\n", getenv("CURRENT_FLOPPY"));
+		}
+		else
+		{
+			printf("invalid floppy number!\n");
+		}
 		return TRUE;
 	}
 	//creating and executing a new process
