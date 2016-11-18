@@ -1,3 +1,15 @@
+/*
+Authors: Dustin Lapierre, Albert Sebastian
+to Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 10.22.2016
+RM command
+Removes the specified file
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -34,7 +46,7 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 
-	FILE_SYSTEM_ID = fopen("floppy1", "r+");
+	FILE_SYSTEM_ID = fopen(getenv("CURRENT_FLOPPY"), "r+");
 	if (FILE_SYSTEM_ID == NULL)
 	{
 		printf("Could not open the floppy drive or image.\n");

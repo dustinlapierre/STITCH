@@ -76,8 +76,24 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
+	//storing the argument
+	char *argumentPath = argv[1];
+	char storedPath[1024];
+
+	//making the path uppercase
+	int i;
+	for(i = 0;argumentPath[i] != '\0';i++)
+	{
+		argumentPath[i] = toupper(argumentPath[i]);
+		storedPath[i] = argumentPath[i];
+	}
+	storedPath[i+1] = '\0';
+
+	//tokenize path
+	char** pathArray = parsePath(argumentPath);
+
 	//no arguments so navigate to root
-	if(argc == 1)
+	if(argc == 1 || (storedPath[0] == '/' && argumentPath[1] == '\0'))
 	{
 		strcpy(path, "/HOME");
 		*currentFLC = 0;
@@ -100,22 +116,6 @@ int main(int argc, char* argv[])
 
 		exit(0);
 	}
-
-	//storing the argument
-	char *argumentPath = argv[1];
-	char storedPath[1024];
-
-	//making the path uppercase
-	int i;
-	for(i = 0;argumentPath[i] != '\0';i++)
-	{
-		argumentPath[i] = toupper(argumentPath[i]);
-		storedPath[i] = argumentPath[i];
-	}
-	storedPath[i+1] = '\0';
-
-	//tokenize path
-	char** pathArray = parsePath(argumentPath);
 
 	//open floppy
 	FILE_SYSTEM_ID = fopen(getenv("CURRENT_FLOPPY"), "r+");

@@ -1,3 +1,15 @@
+/*
+Authors: Dustin Lapierre, Albert Sebastian
+to Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 11.06.2016
+TOUCH command
+Creates a file at the specified location
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

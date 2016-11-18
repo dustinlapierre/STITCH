@@ -1,3 +1,9 @@
+/*
+ * ls.c
+ *
+ *  Created on: Nov 6, 2016
+ *      Author: ajsebastian
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,10 +19,11 @@
 
 FILE* FILE_SYSTEM_ID;
 int BYTES_PER_SECTOR = 512;
+unsigned char* FAT;
 
 void printRoot();
-void printOther(int*);
-void printFile(int* , char*);
+void printOther(int);
+void printFile(int*, char*);
 
 int main(int argc, char* argv[])
 {
@@ -37,6 +44,16 @@ int main(int argc, char* argv[])
 	{
 		printf("Could not open the floppy drive or image.\n");
 		exit(1);
+	}
+
+	int i;
+
+	//store FAT table
+	FAT = (unsigned char*) malloc(BYTES_PER_SECTOR * sizeof(unsigned char) * 9);
+
+	for (i = 0; i < 9; i++)
+	{
+		read_sector(i + 1, &FAT[i * BYTES_PER_SECTOR]);
 	}
 
 	int shm_id;
@@ -80,14 +97,14 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-	if (*currentFLC == 0)
-	{
-		printRoot();
-	}
-	else
-	{
-		printOther(currentFLC);
-	}
+		if (*currentFLC == 0)
+		{
+			printRoot();
+		}
+		else
+		{
+			printOther(*currentFLC);
+		}
 		return 0;
 	}
 
@@ -97,11 +114,9 @@ int main(int argc, char* argv[])
 	char* pathEnd;
 	strcpy(savedPath, path);
 
-
-
 	//parse the argument path into tokens
-	int i;
-	for (i = 0; argument[i] != '\0'; i++) {
+	for (i = 0; argument[i] != '\0'; i++)
+	{
 		argument[i] = toupper(argument[i]);
 	}
 
@@ -109,12 +124,14 @@ int main(int argc, char* argv[])
 	char** pathArray = parsePath(argument);
 	int pathLength;
 
-	for (pathLength = 0; pathArray[pathLength] != NULL; pathLength++) {
+	for (pathLength = 0; pathArray[pathLength] != NULL; pathLength++)
+	{
 		//just counts the # of paths
 	}
 	//save the last token in a variable then drop it
 
-	for (i = 0; pathArray[i + 1] != '\0'; i++);
+	for (i = 0; pathArray[i + 1] != '\0'; i++)
+		;
 	pathEnd = pathArray[i];
 	pathArray[i] = '\0';
 
@@ -124,59 +141,43 @@ int main(int argc, char* argv[])
 	{
 		strcat(cdPath, "/");
 
+		strcat(cdPath, pathArray[0]);
 
-	strcat(cdPath, pathArray[0]);
-
-	for (i = 1; pathArray[i] != '\0'; i++)
-	{
-		strcat(cdPath, "/");
-		strcat(cdPath, pathArray[i]);
-	}
-
-
-
-
-	int pid = fork();
-	if (pid == -1)
-	{
-		perror("Error creating process\n");
-	}
-	else if (pid == 0)
-	{
-		if (execlp("./commands/cd", "cd", cdPath,(char *) NULL) == -1)
+		for (i = 1; pathArray[i] != '\0'; i++)
 		{
-			perror("Error loading program into memory");
-			exit(EXIT_FAILURE);
+			strcat(cdPath, "/");
+			strcat(cdPath, pathArray[i]);
 		}
-	}
 
-	//waiting until child is finished running
-	pid_t waitpid;
-	waitpid = wait(NULL);
-	if (waitpid == -1)
+		int pid = fork();
+		if (pid == -1)
+		{
+			perror("Error creating process\n");
+		}
+		else if (pid == 0)
+		{
+			if (execlp("./commands/cd", "cd", cdPath, (char *) NULL) == -1)
+			{
+				perror("Error loading program into memory");
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		//waiting until child is finished running
+		pid_t waitpid;
+		waitpid = wait(NULL);
+		if (waitpid == -1)
+		{
+			perror("Error on wait");
+			exit(0);
+		}
+		printFile(currentFLC, pathEnd);
+	}
+	else
 	{
-		perror("Error on wait");
-		exit(0);
+		printFile(currentFLC, pathEnd);
 	}
-	printf("%s \n", cdPath);
-	printf("%s \n", pathEnd);
-	printf("%i \n", *currentFLC);
-	printFile(currentFLC, pathEnd);
-}
-else
-{
-	printFile(currentFLC, pathEnd);
-}
 
-
-
-
-
-
-/*
-	printf("%i \n", *currentFLC);
-	printf("%s \n", path);
-*/
 	//reset variables
 	strcpy(path, savedPath);
 	*currentFLC = savedFLC;
@@ -201,8 +202,6 @@ else
 
 }
 
-
-
 void printRoot()
 {
 	printf("Name		Type		File Size		Flc 	\n");
@@ -210,116 +209,155 @@ void printRoot()
 	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
 	int filesize;
 	int i;
+	int sector = 19;
 
-	read_sector(19, buffer); //read the first root sector
+	while (sector < 33)
+	{
 
+		read_sector(sector, buffer); //read the first root sector
 
-	int entryNum;
-	for (entryNum = 0; entryNum < 512 / 32; entryNum++) {
+		int entryNum;
+		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+		{
 
-		if (buffer[32 * entryNum] == 0x00) {
+			if (buffer[32 * entryNum] == 0x00)
+			{
 
-			break;
+				break;
+			}
+
+			if (buffer[32 * entryNum] != 0xE5
+					&& buffer[32 * entryNum + 11] != 0x0f)
+			{
+
+				//prints filename
+				for (i = 0; i < 8; i++)
+				{
+					printf("%c", buffer[32 * entryNum + i]);
+				}
+
+				//prints the . before the extension if necessary
+				if (buffer[32 * entryNum + 8] != 0x20)
+				{
+					printf(".");
+				}
+
+				//prints the file extension
+
+				for (i = 8; i < 11; i++)
+				{
+					printf("%C", buffer[32 * entryNum + i]);
+				}
+
+				//testing directory vs files
+				if (buffer[32 * entryNum + 11] == 0x10)
+				{
+					printf("	DIR	");
+				}
+				else
+				{
+					printf("	FILE 	");
+				}
+				int filesize = buffer[32 * entryNum + 31]
+						| buffer[32 * entryNum + 30]
+						| buffer[32 * entryNum + 29]
+						| buffer[32 * entryNum + 28];
+
+				printf("	%d			", filesize);
+
+				//printing the FLC least sig bit first
+				printf("%d",
+						buffer[32 * entryNum + 27]
+								| buffer[32 * entryNum + 26]);
+				printf("\n");
+			}
+
 		}
-
-		if (buffer[32 * entryNum] != 0xE5
-				&& buffer[32 * entryNum + 11] != 0x0f) {
-
-			//prints filename
-			for (i = 0; i < 8; i++) {
-				printf("%c", buffer[32 * entryNum + i]);
-			}
-
-			//prints the . before the extension if necessary
-			if (buffer[32 * entryNum + 8] != 0x20) {
-				printf(".");
-			}
-
-			//prints the file extension
-
-			for (i = 8; i < 11; i++) {
-				printf("%C", buffer[32 * entryNum + i]);
-			}
-
-			//testing directory vs files
-			if (buffer[32 * entryNum + 11] == 0x10) {
-				printf("	DIR	");
-			} else {
-				printf(" FILE	");
-			}
-			int filesize = buffer[32 * entryNum + 31]
-					| buffer[32 * entryNum + 30] | buffer[32 * entryNum + 29]
-					| buffer[32 * entryNum + 28];
-
-			printf("	%d			", filesize);
-
-			//printing the FLC least sig bit first
-			printf("%d",
-					buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26]);
-			printf("\n");
-		}
-
+		sector += 1;
 	}
 
 }
 
-void printOther(int* currentFLC) {
+void printOther(int currentFLC)
+{
 
 	printf("Name		Type		File Size		Flc 	\n");
 	unsigned char* buffer;
 	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
 	int filesize;
 	int i;
+	int sector = 33 + currentFLC - 2;
 
-	read_sector((33 + *currentFLC - 2), buffer); //read the first root sector
+	while (1)
+	{
+		read_sector(sector, buffer); //read the first root sector
 
-	int entryNum;
-	for (entryNum = 0; entryNum < 512 / 32; entryNum++) {
+		int entryNum;
+		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+		{
 
-		if (buffer[32 * entryNum] == 0x00) {
+			if (buffer[32 * entryNum] == 0x00)
+			{
 
+				break;
+			}
+			//prints filename and extension
+			if (buffer[32 * entryNum] != 0xE5
+					&& buffer[32 * entryNum + 11] != 0x0f)
+			{
+				for (i = 0; i < 8; i++)
+				{
+					printf("%c", buffer[32 * entryNum + i]);
+				}
+				if (buffer[32 * entryNum + 8] != 0x20)
+				{
+					printf(".");
+				}
+				else
+				{
+					printf(" ");
+				}
+				for (i = 8; i < 11; i++)
+				{
+					printf("%C", buffer[32 * entryNum + i]);
+				}
+				//prints filetype
+				if (buffer[32 * entryNum + 11] == 0x10)
+				{
+					printf("	DIR	");
+				}
+				else
+				{
+					printf("	FILE 	");
+				}
+				int filesize = buffer[32 * entryNum + 31]
+						| buffer[32 * entryNum + 30]
+						| buffer[32 * entryNum + 29]
+						| buffer[32 * entryNum + 28];
+
+				printf("	%d			", filesize);
+
+				//printing the FLC least sig bit first
+				printf("%d",
+						buffer[32 * entryNum + 27]
+								| buffer[32 * entryNum + 26]);
+				printf("\n");
+			}
+
+		}
+		if(get_fat_entry(currentFLC, FAT) == 0xfff)
+		{
 			break;
 		}
-    //prints filename and extension
-		if (buffer[32 * entryNum] != 0xE5
-				&& buffer[32 * entryNum + 11] != 0x0f) {
-			for (i = 0; i < 8; i++) {
-				printf("%c", buffer[32 * entryNum + i]);
-			}
-			if (buffer[32 * entryNum + 8] != 0x20) {
-				printf(".");
-			} else {
-				printf(" ");
-			}
-			for (i = 8; i < 11; i++) {
-				printf("%C", buffer[32 * entryNum + i]);
-			}
-      //prints filetype
-			if (buffer[32 * entryNum + 11] == 0x10) {
-				printf(" DIR	");
-			} else {
-				printf(" FILE	");
-			}
-			int filesize = buffer[32 * entryNum + 31]
-					| buffer[32 * entryNum + 30] | buffer[32 * entryNum + 29]
-					| buffer[32 * entryNum + 28];
-
-			printf("	%d			", filesize);
-
-			//printing the FLC least sig bit first
-			printf("%d",
-					buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26]);
-			printf("\n");
-			//printf("%02x %02x\n", buffer[32*entryNum], buffer[32*entryNum + 11]);
-		}
-
+		currentFLC = get_fat_entry(currentFLC, FAT);
+		sector = 33 + currentFLC - 2;
 	}
 
 }
 
 void printFile(int* currentFLC, char* pathEnd)
 {
-	
+
 	int i;
 	unsigned char* buffer;
 	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
@@ -329,7 +367,7 @@ void printFile(int* currentFLC, char* pathEnd)
 	}
 	else
 	{
-	read_sector((33 + *currentFLC - 2), buffer);
+		read_sector((33 + *currentFLC - 2), buffer);
 	}
 
 	char* newPath;
@@ -339,19 +377,25 @@ void printFile(int* currentFLC, char* pathEnd)
 
 	int entryNum;
 
-	for (entryNum = 0; entryNum < 512 / 32; entryNum++) {
-		if (buffer[32 * entryNum] == 0x00) {
+	for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+	{
+		if (buffer[32 * entryNum] == 0x00)
+		{
 			printf("Error: file or directory searched does not exist. \n");
 			return;
 		}
 
 		if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
-		 {
-			for (i = 0; i < 8; i++) {
-				if (buffer[32 * entryNum + i] != ' ') {
+		{
+			for (i = 0; i < 8; i++)
+			{
+				if (buffer[32 * entryNum + i] != ' ')
+				{
 					filename[i] = buffer[32 * entryNum + i];
 					//printf("%c" , filename[i]);
-				} else {
+				}
+				else
+				{
 					filename[i] = '\0';
 				}
 			}
@@ -359,57 +403,60 @@ void printFile(int* currentFLC, char* pathEnd)
 			if (strcmp(filename, pathEnd) == 0)
 			{
 
-				*currentFLC = buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26];
-						break;
+				*currentFLC = buffer[32 * entryNum + 27]
+						| buffer[32 * entryNum + 26];
+				break;
 			}
 		}
-		}
+	}
 
-
-
-		if (buffer[32 * entryNum + 11] == 0x10)
+	if (buffer[32 * entryNum + 11] == 0x10)
+	{
+		if (buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26] == 0)
 		{
-			if (buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26] == 0)
-			{
-				printRoot(currentFLC);
-			}
-			else
-			{
-				printOther(currentFLC);
-			}
+			printRoot();
 		}
 		else
 		{
-			printf("Name		Type		File Size		Flc 	\n");
-			for (i = 0; i < 8; i++) {
-				printf("%c", buffer[32 * entryNum + i]);
-			}
-			if (buffer[32 * entryNum + 8] != 0x20) {
-				printf(".");
-			} else {
-				printf(" ");
-			}
-			for (i = 8; i < 11; i++) {
-				printf("%C", buffer[32 * entryNum + i]);
-			}
-
-			if (buffer[32 * entryNum + 11] == 0x10) {
-				printf(" DIR	");
-			} else {
-				printf(" FILE	");
-			}
-			int filesize = buffer[32 * entryNum + 31]
-					| buffer[32 * entryNum + 30]
-					| buffer[32 * entryNum + 29]
-					| buffer[32 * entryNum + 28];
-
-			printf("	%d			", filesize);
-
-			//printing the FLC least sig bit first
-			printf("%d",
-					buffer[32 * entryNum + 27]
-							| buffer[32 * entryNum + 26]);
-			printf("\n");
+			printOther(*currentFLC);
 		}
+	}
+	else
+	{
+		printf("Name		Type		File Size		Flc 	\n");
+		for (i = 0; i < 8; i++)
+		{
+			printf("%c", buffer[32 * entryNum + i]);
+		}
+		if (buffer[32 * entryNum + 8] != 0x20)
+		{
+			printf(".");
+		}
+		else
+		{
+			printf(" ");
+		}
+		for (i = 8; i < 11; i++)
+		{
+			printf("%C", buffer[32 * entryNum + i]);
+		}
+
+		if (buffer[32 * entryNum + 11] == 0x10)
+		{
+			printf(" DIR	");
+		}
+		else
+		{
+			printf(" FILE	");
+		}
+		int filesize = buffer[32 * entryNum + 31] | buffer[32 * entryNum + 30]
+				| buffer[32 * entryNum + 29] | buffer[32 * entryNum + 28];
+
+		printf("	%d			", filesize);
+
+		//printing the FLC least sig bit first
+		printf("%d", buffer[32 * entryNum + 27] | buffer[32 * entryNum + 26]);
+		printf("\n");
+	}
 
 }

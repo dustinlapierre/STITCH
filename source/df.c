@@ -1,3 +1,14 @@
+/*
+Authors: Dustin Lapierre, Albert Sebastian
+to Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 11.06.2016
+DF command
+Uses the FAT table to print out memory information
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
