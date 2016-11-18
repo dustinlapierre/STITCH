@@ -26,7 +26,7 @@ const int FALSE = 0;
 
 char *getUserInput();
 char **parseUserInput(char* line);
-int executeCommand(char** args);
+int executeCommand(char** args, char* path, int* flc);
 void main_loop();
 
 int main(int argc,char* argv[])
@@ -81,7 +81,7 @@ void main_loop()
 		exit(1);
 	}
 
-	//temporary test for shared memory
+	//path initialized to root
 	strcpy(path, "/HOME");
 
 	//flc initialized to root
@@ -108,7 +108,7 @@ void main_loop()
 		args = parseUserInput(line);
 
 		//4. Execute command
-		status = executeCommand(args);
+		status = executeCommand(args, path, flc);
 
 		free(line);
 		free(args);
@@ -215,16 +215,9 @@ char* concat(const char *s1, const char *s2)
     return result;
 }
 
-//change directory
-int cd(const char *arg)
-{
-
-    return 0;
-}
-
 //Uses arguments to create a process and load a program into memory
 //Notifies parent when program ends
-int executeCommand(char** args)
+int executeCommand(char** args, char* path, int* flc)
 {
 
 	//builtin functions
@@ -247,11 +240,46 @@ int executeCommand(char** args)
 		printf("Copyright 10/14/2016\n");
 		return TRUE;
 	}
+	else if(strcmp(args[0], "help") == 0)
+	{
+		//command that prints command list
+		printf("STITCH 2.0 Commands:\n");
+		printf("cd\n");
+		printf("Changes directory, absolute or relative path accepted\n");
+		printf("cat\n");
+		printf("Prints file contents, absolute or relative path accepted\n");
+		printf("lilo\n");
+		printf("Changes floppy, number between 1-3 accepted\n");
+		printf("ls\n");
+		printf("List elements of directory, absolute or relative path accepted\n");
+		printf("pwd\n");
+		printf("Print working directory, no arguments\n");
+		printf("rm\n");
+		printf("Removes a file, absolute or relative path accepted\n");
+		printf("pbs\n");
+		printf("Prints boot sector, no arguments\n");
+		printf("df\n");
+		printf("Prints memory info, no arguments\n");
+		printf("pfe\n");
+		printf("Prints fat entries, two numbers between 2-2847\n");
+		printf("touch\n");
+		printf("Creates a file, absolute or relative path accepted\n");
+		printf("about\n");
+		printf("Prints about info, no arguments\n");
+		printf("exit\n");
+		printf("Quits shell, no arguments\n");
+		printf("help\n");
+		printf("Prints all commands, no arguments\n");
+		return TRUE;
+	}
 	else if(strcmp(args[0], "lilo") == 0)
 	{
+		//command to change floppy disks
 		if(atoi(args[1]) < 4 && atoi(args[1]) > 0)
 		{
 			setenv("CURRENT_FLOPPY", concat("floppy",args[1]), 1);
+			strcpy(path, "/HOME");
+			*flc = 0;
 			printf("Changed to %s\n", getenv("CURRENT_FLOPPY"));
 		}
 		else
