@@ -18,6 +18,7 @@ gcc rm.c fatSupport.o helperFunctions.o -o rm
 gcc pfe.c fatSupport.o -o pfe
 gcc pbs.c fatSupport.o -o pbs
 gcc df.c fatSupport.o -o df
+gcc pwd.c -o pwd
 mkdir and rmdir not yet implemented
 
 place executables in the commands folder
