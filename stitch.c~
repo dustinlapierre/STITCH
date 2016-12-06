@@ -256,8 +256,6 @@ int executeCommand(char** args, char* path, int* flc)
 		printf("Print working directory, no arguments\n");
 		printf("rm\n");
 		printf("Removes a file, absolute or relative path accepted\n");
-		printf("rmdir\n");
-		printf("Removes a folder, absolute or relative path accepted\n");
 		printf("pbs\n");
 		printf("Prints boot sector, no arguments\n");
 		printf("df\n");
@@ -266,8 +264,6 @@ int executeCommand(char** args, char* path, int* flc)
 		printf("Prints fat entries, two numbers between 2-2847\n");
 		printf("touch\n");
 		printf("Creates a file, absolute or relative path accepted\n");
-		printf("mkdir\n");
-		printf("Creates a folder, absolute or relative path accepted\n");
 		printf("about\n");
 		printf("Prints about info, no arguments\n");
 		printf("exit\n");
