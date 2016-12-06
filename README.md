@@ -15,11 +15,12 @@ gcc cat.c fatSupport.o helperFunctions.o -o cat
 gcc ls.c fatSupport.o helperFunctions.o -o ls
 gcc touch.c fatSupport.o helperFunctions.o -o touch
 gcc rm.c fatSupport.o helperFunctions.o -o rm
+gcc mkdir.c fatSupport.o helperFunctions.o -o mkdir
+gcc rmdir.c fatSupport.o helperFunctions.o -o rmdir
 gcc pfe.c fatSupport.o -o pfe
 gcc pbs.c fatSupport.o -o pbs
 gcc df.c fatSupport.o -o df
 gcc pwd.c -o pwd
-mkdir and rmdir not yet implemented
 
 place executables in the commands folder
 
