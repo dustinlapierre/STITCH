@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 
-	FILE_SYSTEM_ID = fopen("floppy1", "r+");
+	FILE_SYSTEM_ID = fopen(getenv("CURRENT_FLOPPY"), "r+");
 	if (FILE_SYSTEM_ID == NULL)
 	{
 		printf("Could not open the floppy drive or image.\n");
