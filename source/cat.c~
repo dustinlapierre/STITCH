@@ -1,3 +1,14 @@
+/*
+Authors: Dustin Lapierre, Albert Sebastian
+to Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 10.22.2016
+CAT command
+Navigates to the user requested path, prints the file at that location
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

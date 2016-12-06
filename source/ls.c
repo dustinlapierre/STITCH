@@ -1,9 +1,14 @@
 /*
- * ls.c
- *
- *  Created on: Nov 6, 2016
- *      Author: ajsebastian
- */
+Authors: Dustin Lapierre, Albert Sebastian
+to Class: CSI-385-02
+Assignment: FAT12 Filesystem
+Created: 11.06.2016
+LS command
+Prints the contents of the specified folder
+
+Certification of Authenticity:
+I certify that this assignment is entirely my own work.
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -139,7 +144,10 @@ int main(int argc, char* argv[])
 	char cdPath[1024];
 	if (pathLength > 1)
 	{
-		strcat(cdPath, "/");
+		if(savedPath[0] == '/')
+		{
+			cdPath[0] = '/';
+		}
 
 		strcat(cdPath, pathArray[0]);
 

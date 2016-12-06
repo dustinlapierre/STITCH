@@ -3,13 +3,12 @@ Authors: Dustin Lapierre, Albert Sebastian
 to Class: CSI-385-02
 Assignment: FAT12 Filesystem
 Created: 11.06.2016
-RM command
-Removes the specified file
+RMDIR command
+Removes the specified folder
 
 Certification of Authenticity:
 I certify that this assignment is entirely my own work.
 */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,10 +26,11 @@ FILE* FILE_SYSTEM_ID;
 int BYTES_PER_SECTOR = 512;
 unsigned char* FAT;
 
-void removeFile(int, char*);
-void removeFileRoot(char*);
+void removeFolder(int, char*);
+void removeFolderRoot(char*);
 void updateFAT(int);
 void removeExtension(char*);
+int checkEmpty(int FLC);
 
 int main(int argc, char* argv[])
 {
@@ -102,14 +102,14 @@ int main(int argc, char* argv[])
 
 	if (argc == 1)
 	{
-		printf("Too few arguments: cat requires one argument \n");
+		printf("Too few arguments: rm requires one argument \n");
 	}
 	int savedFLC = *currentFLC;
 	char savedPath[1024];
 	char* pathEnd;
 	strcpy(savedPath, path);
 
-	//CAT functionality
+	//Convert argument to upper case
 
 	for (i = 0; argument[i] != '\0'; i++)
 	{
@@ -120,11 +120,13 @@ int main(int argc, char* argv[])
 	char** pathArray = parsePath(argument);
 	int pathLength;
 
-	for (pathLength = 0; pathArray[pathLength] != NULL; pathLength++);
+	for (pathLength = 0; pathArray[pathLength] != NULL; pathLength++)
+		;
 	//just counts the # of paths
 
 	//save the last token in a variable then drop it
-	for (i = 0; pathArray[i + 1] != '\0'; i++);
+	for (i = 0; pathArray[i + 1] != '\0'; i++)
+		;
 	pathEnd = pathArray[i];
 	pathArray[i] = '\0';
 
@@ -173,22 +175,22 @@ int main(int argc, char* argv[])
 
 		if (*currentFLC == 0)
 		{
-			removeFileRoot(pathEnd);
+			removeFolderRoot(pathEnd);
 		}
 		else
 		{
-			removeFile(*currentFLC, pathEnd);
+			removeFolder(*currentFLC, pathEnd);
 		}
 	}
 	else
 	{
 		if (*currentFLC == 0)
 		{
-			removeFileRoot(pathEnd);
+			removeFolderRoot(pathEnd);
 		}
 		else
 		{
-			removeFile(*currentFLC, pathEnd);
+			removeFolder(*currentFLC, pathEnd);
 		}
 	}
 
@@ -214,7 +216,7 @@ int main(int argc, char* argv[])
 }
 
 //locates the file and checks if it's valid
-void removeFile(int currentFLC, char* pathEnd)
+void removeFolder(int currentFLC, char* pathEnd)
 {
 	int i;
 	unsigned char* buffer;
@@ -225,12 +227,13 @@ void removeFile(int currentFLC, char* pathEnd)
 	int flc = -1;
 	char attr;
 	int entryNum;
+	int wrongType = 0;
 
 	//loop through FAT entries for the folder
-	while(1)
+	while (1)
 	{
 		//if sector can't be read break
-		if(read_sector(sector, buffer) == -1)
+		if (read_sector(sector, buffer) == -1)
 		{
 			break;
 		}
@@ -243,7 +246,8 @@ void removeFile(int currentFLC, char* pathEnd)
 				break;
 			}
 
-			if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
+			if (buffer[32 * entryNum] != 0xE5
+					&& buffer[32 * entryNum + 11] != 0x0f)
 			{
 				for (i = 0; i < 8; i++)
 				{
@@ -257,22 +261,47 @@ void removeFile(int currentFLC, char* pathEnd)
 					}
 				}
 				attr = buffer[32 * entryNum + 11];
-				if (strcmp(filename, pathEnd) == 0 && attr != 0x10)
+				if (strcmp(filename, pathEnd) == 0 && attr == 0x10)
 				{
-					//file is found
-					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
-					buffer[32 * entryNum] = 0xE5;
-					if(write_sector(sector, buffer) == -1)
+					if (strcmp(filename, "..") == 0 || strcmp(filename, ".") == 0)
 					{
-						printf("Problem writing to disk \n");
+						//can't delete . and ..
+						printf("Error: invalid folder!\n");
+						break;
 					}
+					else
+					{
+						//folder is found
+						flc = (buffer[32 * entryNum + 27] << 8)
+								+ buffer[32 * entryNum + 26];
+						if (checkEmpty(flc) == 1)
+						{
+							buffer[32 * entryNum] = 0xE5;
+							if (write_sector(sector, buffer) == -1)
+							{
+								printf("Problem writing to disk \n");
+							}
+							break;
+						}
+						else
+						{
+							printf("Error: folder is not empty!\n");
+							break;
+						}
+					}
+				}
+				else if (strcmp(filename, pathEnd) == 0 && attr != 0x10)
+				{
+					//not a folder
+					printf("Error: not a folder!\n");
+					wrongType = 1;
 					break;
 				}
 
 			}
 
 		}
-		if(get_fat_entry(currentFLC, FAT) == 0xfff)
+		if (get_fat_entry(currentFLC, FAT) == 0xfff)
 		{
 			break;
 		}
@@ -280,28 +309,31 @@ void removeFile(int currentFLC, char* pathEnd)
 		sector = 33 + currentFLC - 2;
 	}
 
-	updateFAT(flc);
+	if(wrongType == 0)
+	{
+		updateFAT(flc);
+	}
 	free(buffer);
 }
 
 //locates the file and checks if it's valid in root
-void removeFileRoot(char* pathEnd)
+void removeFolderRoot(char* pathEnd)
 {
 	int i;
 	unsigned char* buffer;
 	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
-
 	int sector = 19;
 	char filename[8];
 	int flc = -1;
 	char attr;
 	int entryNum;
+	int wrongType = 0;
 
 	//loop through FAT entries for the folder
-	while(sector < 33)
+	while (sector < 33)
 	{
 		//if sector can't be read break
-		if(read_sector(sector, buffer) == -1)
+		if (read_sector(sector, buffer) == -1)
 		{
 			break;
 		}
@@ -314,7 +346,8 @@ void removeFileRoot(char* pathEnd)
 				break;
 			}
 
-			if (buffer[32 * entryNum] != 0xE5 && buffer[32 * entryNum + 11] != 0x0f)
+			if (buffer[32 * entryNum] != 0xE5
+					&& buffer[32 * entryNum + 11] != 0x0f)
 			{
 				for (i = 0; i < 8; i++)
 				{
@@ -328,15 +361,40 @@ void removeFileRoot(char* pathEnd)
 					}
 				}
 				attr = buffer[32 * entryNum + 11];
-				if (strcmp(filename, pathEnd) == 0 && attr != 0x10)
+				if (strcmp(filename, pathEnd) == 0 && attr == 0x10)
 				{
-					//file is found
-					flc = (buffer[32 * entryNum + 27] << 8) + buffer[32 * entryNum + 26];
-					buffer[32 * entryNum] = 0xE5;
-					if(write_sector(sector, buffer) == -1)
+					if (strcmp(filename, "..") == 0 || strcmp(filename, ".") == 0)
 					{
-						printf("Problem writing to disk \n");
+						//can't delete . and ..
+						printf("Error: invalid folder!\n");
+						break;
 					}
+					else
+					{
+						//folder is found
+						flc = (buffer[32 * entryNum + 27] << 8)
+								+ buffer[32 * entryNum + 26];
+						if (checkEmpty(flc) == 1)
+						{
+							buffer[32 * entryNum] = 0xE5;
+							if (write_sector(sector, buffer) == -1)
+							{
+								printf("Problem writing to disk \n");
+							}
+							break;
+						}
+						else
+						{
+							printf("Error: folder is not empty!\n");
+							break;
+						}
+					}
+				}
+				else if (strcmp(filename, pathEnd) == 0 && attr != 0x10)
+				{
+					//not a folder
+					printf("Error: not a folder!\n");
+					wrongType = 1;
 					break;
 				}
 
@@ -346,7 +404,10 @@ void removeFileRoot(char* pathEnd)
 		sector += 1;
 	}
 
-	updateFAT(flc);
+	if(wrongType == 0)
+	{
+		updateFAT(flc);
+	}
 	free(buffer);
 }
 
@@ -362,15 +423,15 @@ void updateFAT(int flc)
 	}
 	else
 	{
-		while(1)
+		while (1)
 		{
-			if(get_fat_entry(flc, FAT) == 0xfff)
+			if (get_fat_entry(flc, FAT) == 0xfff)
 			{
-				set_fat_entry(flc,0x00,FAT);
+				set_fat_entry(flc, 0x00, FAT);
 				break;
 			}
 			temp = get_fat_entry(flc, FAT);
-			set_fat_entry(flc,0x00,FAT);
+			set_fat_entry(flc, 0x00, FAT);
 			flc = temp;
 		}
 
@@ -386,11 +447,76 @@ void removeExtension(char* filename)
 {
 	//replaces the period with a null terminator
 	int i;
-	for(i = 0;filename[i] != '\0';i++)
+	for (i = 0; filename[i] != '\0'; i++)
 	{
-		if(filename[i] == '.')
+		if (filename[i] == '.')
 		{
 			filename[i] = '\0';
 		}
 	}
+}
+
+//using the flc checks whether the given folder contains only . and ..
+int checkEmpty(int currentFLC)
+{
+	int empty = 1;
+	int i;
+	unsigned char* buffer;
+	buffer = malloc(BYTES_PER_SECTOR * sizeof(unsigned char));
+	int sector = 33 + currentFLC - 2;
+	char filename[8];
+	int entryNum;
+
+	//loop through FAT entries for the folder
+	while (1)
+	{
+		//if sector can't be read break
+		if (read_sector(sector, buffer) == -1)
+		{
+			break;
+		}
+
+		for (entryNum = 0; entryNum < 512 / 32; entryNum++)
+		{
+
+			if (buffer[32 * entryNum] == 0x00)
+			{
+				break;
+			}
+
+			if (buffer[32 * entryNum] != 0xE5
+					&& buffer[32 * entryNum + 11] != 0x0f)
+			{
+				for (i = 0; i < 8; i++)
+				{
+					if (buffer[32 * entryNum + i] != ' ')
+					{
+						filename[i] = buffer[32 * entryNum + i];
+					}
+					else
+					{
+						filename[i] = '\0';
+					}
+				}
+				if (strcmp(filename, "..") != 0 && strcmp(filename, ".") != 0)
+				{
+					//file or folder is found, not empty
+					empty = 0;
+					break;
+				}
+
+			}
+
+		}
+		if (get_fat_entry(currentFLC, FAT) == 0xfff)
+		{
+			break;
+		}
+		currentFLC = get_fat_entry(currentFLC, FAT);
+		sector = 33 + currentFLC - 2;
+	}
+
+	free(buffer);
+	return empty;
+
 }

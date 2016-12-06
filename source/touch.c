@@ -148,7 +148,10 @@ int main(int argc, char* argv[])
 	char cdPath[1024];
 	if (pathLength > 1)
 	{
-		strcat(cdPath, "/");
+		if(savedPath[0] == '/')
+		{
+			cdPath[0] = '/';
+		}
 
 		strcat(cdPath, pathArray[0]);
 
